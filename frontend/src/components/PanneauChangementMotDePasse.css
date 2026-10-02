@@ -1,0 +1,65 @@
+/**
+ * Le panneau modal de changement de mot de passe — premier de ce genre
+ * dans ce logiciel (jusqu'ici, tout se faisait en formulaire direct sur
+ * la page). Suit les tokens déjà établis (styles/tokens.css), jamais de
+ * nouvelle couleur ou police inventée ici.
+ */
+
+.superposition-panneau {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 43, 57, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.panneau-creation {
+  /* Explicite, et volontaire : ce panneau est rendu à l'intérieur du
+     JSX de EnTete, donc physiquement descendant de .en-tete dans le
+     DOM (même si affiché par-dessus toute la page via position: fixed)
+     — sans cette ligne, color: white de .en-tete se propage ici par
+     héritage, invisible sur ce fond blanc. */
+  color: var(--couleur-marine);
+  background: var(--couleur-blanc);
+  border-radius: var(--rayon-grand);
+  border: 1px solid var(--couleur-bordure);
+  padding: var(--espace-8);
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 10px 30px rgba(28, 43, 57, 0.15);
+}
+
+.panneau-creation h2 {
+  font-family: var(--police-titres);
+  margin-top: 0;
+  margin-bottom: var(--espace-6);
+}
+
+.panneau-creation .champ {
+  margin-bottom: var(--espace-4);
+}
+
+.panneau-creation label {
+  display: block;
+  margin-bottom: var(--espace-1);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.panneau-creation input[type="text"],
+.panneau-creation input[type="password"] {
+  width: 100%;
+  padding: var(--espace-2) var(--espace-3);
+  border: 1px solid var(--couleur-bordure);
+  border-radius: var(--rayon-petit);
+  font-family: var(--police-texte);
+  font-size: 14px;
+}
+
+.boutons-panneau {
+  display: flex;
+  gap: var(--espace-3);
+  margin-top: var(--espace-6);
+}

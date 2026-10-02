@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Terme {
+  AUTOMNE
+  PRINTEMPS
+  ETE
+}
+
+enum Cycle {
+  LICENCE
+  MASTER
+}
+
+enum RoleUtilisateur {
+  ADMINISTRATEUR
+  CAISSIER
+}
+
+/**
+ * Un compte permettant de se connecter à CE logiciel — comptable ou
+ * caissier. Complètement séparé des comptes du système académique :
+ * les deux logiciels ne partagent aucun utilisateur, aucune session.
+ */
+model Utilisateur {
+  id             String          @id @default(uuid())
+  nom            String
+  identifiant    String          @unique
+  motDePasseHash String          @map("mot_de_passe_hash")
+  role           RoleUtilisateur @default(CAISSIER)
+  estActif       Boolean         @default(true) @map("est_actif")
+  creeLe         DateTime        @default(now()) @map("cree_le")
+
+  paiementsEncaisses Paiement[]
+
+  @@map("utilisateurs")
+}
+
+/**
+ * La règle de tarification elle-même — configurable, jamais écrite en
+ * dur dans le code. Une ligne par combinaison (Cycle, Terme, nombre de
+ * matières) déjà rencontrée — Licence et Master ne partagent jamais la
+ * même règle, même à Terme et nombre de matières identiques.
+ * Recherchée par correspondance EXACTE sur ces trois champs : (LICENCE,
+ * AUTOMNE, 3) et (MASTER, AUTOMNE, 3) sont deux lignes distinctes,
+ * jamais une interpolation entre les deux.
+ *
+ * Quand aucune règle ne correspond à un cas rencontré, la comptable
+ * saisit le montant manuellement — et CETTE saisie crée automatiquement
+ * une nouvelle ligne ici, pour que la même combinaison s'applique
+ * seule, la prochaine fois qu'elle se présente (voir
+ * tarifs.service.ts : trouverOuCreerTarif).
+ */
+model TarifTerme {
+  id             String  @id @default(uuid())
+  cycle          Cycle
+  terme          Terme
+  nombreMatieres Int     @map("nombre_matieres")
+  montant        Decimal @db.Decimal(10, 2)
+  creeLe         DateTime @default(now()) @map("cree_le")
+
+  @@unique([cycle, terme, nombreMatieres])
+  @@map("tarifs_termes")
+}
+
+/**
+ * UN paiement, une seule transaction — jamais fusionné avec les autres.
+ * Le total payé, pour un étudiant/année/Terme donné, est TOUJOURS la
+ * somme de ces lignes, calculée à la demande, jamais stockée à part :
+ * impossible que ce total se désynchronise de la réalité.
+ *
+ * Ce logiciel ne crée plus jamais d'étudiant lui-même — l'académique est
+ * la seule source de vérité pour l'identité. Un paiement ne connaît un
+ * étudiant que par son `matricule` (jamais une clé étrangère locale,
+ * jamais de table d'étudiants ici) ; `nom` est figé au moment du
+ * paiement, retrouvé en interrogeant l'académique, exactement comme
+ * `formation`/`niveau`/`nombreMatieres` ci-dessous — pour qu'un reçu
+ * réimprimé plus tard reste fidèle à ce qui était vrai ce jour-là.
+ *
+ * `anneeUniversitaire` est le LIBELLÉ ("2026-2027"), pas un identifiant
+ * partagé avec la base académique — les deux systèmes ne partagent
+ * jamais d'ID interne, seulement le matricule et ce genre de valeurs
+ * lisibles, exactement comme prévu par la séparation voulue.
+ */
+model Paiement {
+  id        String  @id @default(uuid())
+  matricule String
+  nom       String
+  inn       String?
+
+  anneeUniversitaire String @map("annee_universitaire")
+  terme              Terme
+
+  montant       Decimal @db.Decimal(10, 2)
+  modePaiement  String  @map("mode_paiement")
+
+  // Figé au moment du paiement — jamais recalculé plus tard, pour que le
+  // reçu reste fidèle à ce qui était vrai ce jour-là, même si l'académique
+  // change ensuite (une matière réaffectée, un tarif corrigé...).
+  cycle          Cycle
+  formation      String @map("formation")
+  niveau         String @map("niveau")
+  nombreMatieres Int    @map("nombre_matieres")
+  montantTerme   Decimal @map("montant_terme") @db.Decimal(10, 2)
+  totalPayeApres Decimal @map("total_paye_apres") @db.Decimal(10, 2)
+  resteApres     Decimal @map("reste_apres") @db.Decimal(10, 2)
+
+  caissierId String      @map("caissier_id")
+  caissier   Utilisateur @relation(fields: [caissierId], references: [id], onDelete: Restrict)
+
+  numeroRecu String   @unique @map("numero_recu")
+  dateHeure  DateTime @default(now()) @map("date_heure")
+
+  @@index([matricule])
+  @@map("paiements")
+}
